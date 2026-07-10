@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import AuthGuard from "@/components/AuthGuard";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,7 +23,9 @@ export default function RootLayout({
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-dvh flex-col bg-white">
         <Header />
-        <div className="flex flex-1 flex-col">{children}</div>
+        <AuthGuard>
+          <div className="flex flex-1 flex-col">{children}</div>
+        </AuthGuard>
       </body>
     </html>
   );
