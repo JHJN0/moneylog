@@ -1,27 +1,111 @@
-"use client"
+"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Expense, formatKRW, monthLabel, sumAmounts } from "@/types";
+import { fetchExpensesByMonth, fetchPrevMonthToDateTotal } from "@/lib/expenses";
+import ExpenseRow from "@/components/ExpenseRow";
+import PrimaryButton from "@/components/PrimaryButton";
 
-export default function Home() {
+export default function Dashboard() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
 
-  const [text, setText] = useState("");
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [prevTotal, setPrevTotal] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetchExpensesByMonth(year, month),
+      fetchPrevMonthToDateTotal(year, month, day),
+    ])
+      .then(([monthExpenses, prev]) => {
+        setExpenses(monthExpenses);
+        setPrevTotal(prev);
+      })
+      .catch(console.error)
+      .finally(() => setLoaded(true));
+  }, [year, month, day]);
+
+  const total = sumAmounts(expenses);
+  const count = expenses.length;
+  const dailyAvg = day > 0 ? Math.round(total / day) : 0;
+  const diff = prevTotal === null ? null : prevTotal - total;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-3xl font-bold">머니로그</h1>
-      
-    
-    <input
-    type="text"
-    value={text}
-    onChange={(e) => setText(e.target.value)}
-    placeholder="예: 어제 편의점 3천원"
-    className="w-80 rounded-lg border px-4 pt-2"/>
+    <main className="mx-auto w-full max-w-[1280px] px-20">
+      {/* 히어로 */}
+      <section className="flex items-start justify-between pt-16 pb-12">
+        <div>
+          <p className="text-base text-sub">{monthLabel(year, month)}</p>
+          <h1 className="mt-2 text-[40px] leading-tight font-bold text-ink">
+            이번 달 <span className="text-rausch">{formatKRW(total)}</span>{" "}
+            썼어요
+          </h1>
+          {diff !== null && diff !== 0 && (
+            <p className="mt-3 text-base text-sub">
+              지난달 같은 날보다 {formatKRW(Math.abs(diff))}{" "}
+              {diff > 0 ? "덜" : "더"} 썼어요
+            </p>
+          )}
+        </div>
+        <PrimaryButton href="/add">지출 적기</PrimaryButton>
+      </section>
 
-    
-    
-    
-    
+      {/* 2컬럼: 최근 지출 + 요약 */}
+      <section className="grid grid-cols-[1fr_380px] gap-12 pb-16">
+        <div>
+          <div className="flex items-end justify-between border-b border-line-strong pb-3">
+            <h2 className="text-[21px] font-bold text-ink">최근 지출</h2>
+            <Link
+              href="/history"
+              className="text-sm font-medium text-ink underline underline-offset-2"
+            >
+              전체 보기
+            </Link>
+          </div>
+          <ul>
+            {expenses.slice(0, 8).map((e) => (
+              <ExpenseRow key={e.id} expense={e} showDate />
+            ))}
+            {loaded && expenses.length === 0 && (
+              <li className="pt-4 text-sm text-hint">
+                아직 지출이 없어요. 오늘 뭐 썼는지 적어볼까요?
+              </li>
+            )}
+          </ul>
+        </div>
+
+        <div>
+          <div className="rounded-(--radius-card) border border-line-strong p-7">
+            <h2 className="text-[21px] font-bold text-ink">{month}월 요약</h2>
+            <dl className="mt-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <dt className="text-sm text-sub">총 지출</dt>
+                <dd className="whitespace-nowrap text-base font-semibold text-ink">
+                  {formatKRW(total)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-sm text-sub">지출 건수</dt>
+                <dd className="text-base font-semibold text-ink">{count}건</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-sm text-sub">하루 평균</dt>
+                <dd className="whitespace-nowrap text-base font-semibold text-ink">
+                  {formatKRW(dailyAvg)}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-6 text-[13px] text-hint">
+              매일 적기만 해도 반은 성공이에요
+            </p>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

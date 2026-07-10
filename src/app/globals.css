@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* 폰트 */
+  --font-sans: var(--font-inter), "Inter", -apple-system, sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Airbnb 스타일 팔레트 — 포인트 컬러는 Rausch 단 하나 */
+  --color-rausch: #ff385c;
+  --color-rausch-press: #e00b41;
+  --color-ink: #222222;
+  --color-body: #3f3f3f;
+  --color-sub: #6a6a6a;
+  --color-hint: #929292;
+  --color-disabled: #c1c1c1;
+  --color-line-strong: #dddddd;
+  --color-line: #ebebeb;
+  --color-soft: #f7f7f7;
+  --color-error: #c13515;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* 라운드: 버튼 8px · 카드 14px · 필 9999px */
+  --radius-btn: 8px;
+  --radius-card: 14px;
+
+  /* 그림자 금지 — 예외: 프롬프트 입력창만 */
+  --shadow-prompt: 0 3px 12px rgba(0, 0, 0, 0.08);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  word-break: keep-all;
 }
