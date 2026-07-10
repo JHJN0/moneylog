@@ -24,10 +24,14 @@ export default function AddExpense() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [todayExpenses, setTodayExpenses] = useState<Expense[]>([]);
+  const [todayLoaded, setTodayLoaded] = useState(false);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshToday = () => {
-    fetchExpensesByDate(today).then(setTodayExpenses).catch(console.error);
+    fetchExpensesByDate(today)
+      .then(setTodayExpenses)
+      .catch(console.error)
+      .finally(() => setTodayLoaded(true));
   };
 
   useEffect(() => {
@@ -139,6 +143,7 @@ export default function AddExpense() {
       <TodayPanel
         date={today}
         expenses={todayExpenses}
+        loading={!todayLoaded}
         footer={
           <Link
             href="/history"

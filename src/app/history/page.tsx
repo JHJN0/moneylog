@@ -24,6 +24,7 @@ export default function History() {
     month: now.getMonth() + 1,
   });
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
   const isCurrentMonth =
@@ -32,7 +33,8 @@ export default function History() {
   useEffect(() => {
     fetchExpensesByMonth(cursor.year, cursor.month)
       .then(setExpenses)
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoaded(true));
   }, [cursor.year, cursor.month]);
 
   // 날짜별 합계 맵
@@ -174,6 +176,7 @@ export default function History() {
       <TodayPanel
         date={selectedDate}
         expenses={panelExpenses}
+        loading={!loaded}
         footer={
           <PrimaryButton href="/add" fullWidth>
             지출 적기

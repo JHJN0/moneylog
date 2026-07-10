@@ -6,6 +6,7 @@ import { Expense, formatKRW, monthLabel, sumAmounts } from "@/types";
 import { fetchExpensesByMonth, fetchPrevMonthToDateTotal } from "@/lib/expenses";
 import ExpenseRow from "@/components/ExpenseRow";
 import PrimaryButton from "@/components/PrimaryButton";
+import Skeleton from "@/components/Skeleton";
 
 export default function Dashboard() {
   const now = new Date();
@@ -41,11 +42,15 @@ export default function Dashboard() {
       <section className="flex items-start justify-between pt-16 pb-12">
         <div>
           <p className="text-base text-sub">{monthLabel(year, month)}</p>
-          <h1 className="mt-2 text-[40px] leading-tight font-bold text-ink">
-            이번 달 <span className="text-rausch">{formatKRW(total)}</span>{" "}
-            썼어요
-          </h1>
-          {diff !== null && diff !== 0 && (
+          {loaded ? (
+            <h1 className="mt-2 text-[40px] leading-tight font-bold text-ink">
+              이번 달 <span className="text-rausch">{formatKRW(total)}</span>{" "}
+              썼어요
+            </h1>
+          ) : (
+            <Skeleton className="mt-3 h-11 w-[400px]" />
+          )}
+          {loaded && diff !== null && diff !== 0 && (
             <p className="mt-3 text-base text-sub">
               지난달 같은 날보다 {formatKRW(Math.abs(diff))}{" "}
               {diff > 0 ? "덜" : "더"} 썼어요
@@ -68,6 +73,12 @@ export default function Dashboard() {
             </Link>
           </div>
           <ul>
+            {!loaded &&
+              Array.from({ length: 4 }, (_, i) => (
+                <li key={i} className="border-b border-line py-5">
+                  <Skeleton className="h-5 w-full" />
+                </li>
+              ))}
             {expenses.slice(0, 8).map((e) => (
               <ExpenseRow key={e.id} expense={e} showDate />
             ))}
@@ -86,17 +97,19 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <dt className="text-sm text-sub">총 지출</dt>
                 <dd className="whitespace-nowrap text-base font-semibold text-ink">
-                  {formatKRW(total)}
+                  {loaded ? formatKRW(total) : <Skeleton className="h-5 w-20" />}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-sm text-sub">지출 건수</dt>
-                <dd className="text-base font-semibold text-ink">{count}건</dd>
+                <dd className="text-base font-semibold text-ink">
+                  {loaded ? `${count}건` : <Skeleton className="h-5 w-12" />}
+                </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-sm text-sub">하루 평균</dt>
                 <dd className="whitespace-nowrap text-base font-semibold text-ink">
-                  {formatKRW(dailyAvg)}
+                  {loaded ? formatKRW(dailyAvg) : <Skeleton className="h-5 w-16" />}
                 </dd>
               </div>
             </dl>
