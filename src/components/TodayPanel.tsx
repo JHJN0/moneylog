@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Expense, formatKRW, dateLabel, sumAmounts } from "@/types";
 import ExpenseRow from "@/components/ExpenseRow";
 import Skeleton from "@/components/Skeleton";
@@ -32,7 +33,16 @@ export default function TodayPanel({ date, expenses, loading, footer }: Props) {
             </li>
           ))
         ) : expenses.length === 0 ? (
-          <li className="pt-2 text-sm text-hint">아직 적은 지출이 없어요</li>
+          <li className="flex flex-col items-center gap-3 pt-8">
+            <Image
+              src="/tori.png"
+              alt=""
+              width={72}
+              height={72}
+              className="opacity-80"
+            />
+            <span className="text-sm text-hint">아직 적은 지출이 없어요</span>
+          </li>
         ) : (
           expenses.map((e) => <ExpenseRow key={e.id} expense={e} />)
         )}

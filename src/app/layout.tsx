@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "머니로그",
-  description: "문장으로 적는 미니멀 가계부",
+  title: "토리",
+  description: "문장으로 적는 미니멀 가계부, 토리",
 };
 
 export default function RootLayout({

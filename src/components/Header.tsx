@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Wallet, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { displayName, signOut } from "@/lib/auth";
 import { useUser } from "@/lib/useUser";
 
@@ -20,8 +21,8 @@ export default function Header() {
     <header className="border-b border-line bg-white px-12 py-5">
       <div className="flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Wallet size={24} strokeWidth={2} className="text-rausch" />
-          <span className="text-xl font-bold text-ink">머니로그</span>
+          <Image src="/tori.png" alt="토리" width={30} height={30} priority />
+          <span className="text-xl font-bold text-ink">토리</span>
         </Link>
         {user && (
           <nav className="flex items-center gap-8">
