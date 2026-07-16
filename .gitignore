@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 디자인 원본 (public/tori.png로 변환되어 사용됨)
+밤톨이.jpg
