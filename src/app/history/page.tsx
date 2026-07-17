@@ -12,6 +12,10 @@ import {
 } from "@/types";
 import { fetchExpensesByMonth } from "@/lib/expenses";
 import TodayPanel from "@/components/TodayPanel";
+import Acorn from "@/components/Acorn";
+import ExpenseEditSheet, {
+  type EditSheetMode,
+} from "@/components/ExpenseEditSheet";
 import PrimaryButton from "@/components/PrimaryButton";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -26,22 +30,32 @@ export default function History() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [sheet, setSheet] = useState<{
+    expense: Expense;
+    mode: EditSheetMode;
+  } | null>(null);
 
   const isCurrentMonth =
     cursor.year === now.getFullYear() && cursor.month === now.getMonth() + 1;
 
-  useEffect(() => {
+  const refresh = () => {
     fetchExpensesByMonth(cursor.year, cursor.month)
       .then(setExpenses)
       .catch(console.error)
       .finally(() => setLoaded(true));
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor.year, cursor.month]);
 
-  // 날짜별 합계 맵
+  // 날짜별 합계·건수 맵
   const byDay = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { sum: number; count: number }>();
     for (const e of expenses) {
-      map.set(e.date, (map.get(e.date) ?? 0) + e.amount);
+      const prev = map.get(e.date) ?? { sum: 0, count: 0 };
+      map.set(e.date, { sum: prev.sum + e.amount, count: prev.count + 1 });
     }
     return map;
   }, [expenses]);
@@ -123,10 +137,10 @@ export default function History() {
               }
 
               const dateStr = toDateStr(cursor.year, cursor.month, dayNum);
-              const daySum = byDay.get(dateStr);
+              const day = byDay.get(dateStr);
               const isToday = dateStr === today;
               const isFuture = dateStr > today;
-              const clickable = !!daySum;
+              const clickable = !!day;
 
               return (
                 <div
@@ -152,13 +166,32 @@ export default function History() {
                       {dayNum}
                     </span>
                   )}
-                  {daySum && (
-                    <span
-                      className={`text-xs font-semibold whitespace-nowrap ${
-                        isToday ? "text-rausch" : "text-ink"
-                      }`}
-                    >
-                      {formatKRW(daySum)}
+                  {day && (
+                    <span className="flex flex-col gap-1">
+                      {/* 그날 담은 도토리 — 5개까지, 넘치면 +N */}
+                      <span
+                        className="flex flex-wrap items-center gap-px"
+                        aria-label={`도토리 ${day.count}개`}
+                      >
+                        {Array.from(
+                          { length: Math.min(day.count, 5) },
+                          (_, k) => (
+                            <Acorn key={k} size={13} />
+                          ),
+                        )}
+                        {day.count > 5 && (
+                          <span className="ml-0.5 text-[10px] font-semibold text-sub">
+                            +{day.count - 5}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`text-xs font-semibold whitespace-nowrap ${
+                          isToday ? "text-rausch" : "text-ink"
+                        }`}
+                      >
+                        {formatKRW(day.sum)}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -167,7 +200,8 @@ export default function History() {
           </div>
 
           <p className="mt-4 text-[13px] text-hint">
-            지출이 있는 날엔 하루 합계가 보여요 · 오늘은 테두리로 표시돼요
+            지출이 있는 날엔 담은 도토리와 하루 합계가 보여요 · 오늘은
+            테두리로 표시돼요
           </p>
         </div>
       </main>
@@ -177,12 +211,24 @@ export default function History() {
         date={selectedDate}
         expenses={panelExpenses}
         loading={!loaded}
+        onEdit={(expense) => setSheet({ expense, mode: "edit" })}
+        onDelete={(expense) => setSheet({ expense, mode: "delete" })}
         footer={
           <PrimaryButton href="/add" fullWidth>
             지출 적기
           </PrimaryButton>
         }
       />
+
+      {sheet && (
+        <ExpenseEditSheet
+          expense={sheet.expense}
+          initialMode={sheet.mode}
+          onClose={() => setSheet(null)}
+          onSaved={refresh}
+          onDeleted={refresh}
+        />
+      )}
     </div>
   );
 }

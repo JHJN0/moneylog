@@ -6,6 +6,8 @@ import {
   House,
   Clapperboard,
   Tag,
+  Pencil,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { Category, Expense, formatKRW, dateLabel } from "@/types";
@@ -23,13 +25,20 @@ export const CATEGORY_ICONS: Record<Category, LucideIcon> = {
 interface Props {
   expense: Expense;
   showDate?: boolean; // 대시보드 최근 지출에서 날짜 컬럼 표시
+  onEdit?: (expense: Expense) => void; // 있으면 수정·삭제 버튼 표시
+  onDelete?: (expense: Expense) => void;
 }
 
-export default function ExpenseRow({ expense, showDate = false }: Props) {
+export default function ExpenseRow({
+  expense,
+  showDate = false,
+  onEdit,
+  onDelete,
+}: Props) {
   const Icon = CATEGORY_ICONS[expense.category];
 
   return (
-    <li className="flex items-center gap-3 border-b border-line py-3.5 last:border-b-0">
+    <li className="group flex items-center gap-3 border-b border-line py-3.5 last:border-b-0">
       {showDate && (
         <span className="w-[92px] shrink-0 text-sm text-sub">
           {dateLabel(expense.date)}
@@ -47,6 +56,30 @@ export default function ExpenseRow({ expense, showDate = false }: Props) {
       <span className="whitespace-nowrap text-[15px] font-semibold text-ink">
         {formatKRW(expense.amount)}
       </span>
+      {(onEdit || onDelete) && (
+        <span className="flex shrink-0 items-center gap-1">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(expense)}
+              aria-label="지출 수정"
+              className="flex size-8 items-center justify-center rounded-full text-hint hover:bg-soft hover:text-ink"
+            >
+              <Pencil size={15} strokeWidth={2} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(expense)}
+              aria-label="지출 삭제"
+              className="flex size-8 items-center justify-center rounded-full text-hint hover:bg-soft hover:text-error"
+            >
+              <Trash2 size={15} strokeWidth={2} />
+            </button>
+          )}
+        </span>
+      )}
     </li>
   );
 }

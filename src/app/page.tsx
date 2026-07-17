@@ -5,8 +5,12 @@ import Link from "next/link";
 import { Expense, formatKRW, monthLabel, sumAmounts } from "@/types";
 import { fetchExpensesByMonth, fetchPrevMonthToDateTotal } from "@/lib/expenses";
 import ExpenseRow from "@/components/ExpenseRow";
+import ExpenseEditSheet, {
+  type EditSheetMode,
+} from "@/components/ExpenseEditSheet";
 import PrimaryButton from "@/components/PrimaryButton";
 import Skeleton from "@/components/Skeleton";
+import AcornBasket from "@/components/AcornBasket";
 
 export default function Dashboard() {
   const now = new Date();
@@ -17,8 +21,12 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [prevTotal, setPrevTotal] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [sheet, setSheet] = useState<{
+    expense: Expense;
+    mode: EditSheetMode;
+  } | null>(null);
 
-  useEffect(() => {
+  const refresh = () => {
     Promise.all([
       fetchExpensesByMonth(year, month),
       fetchPrevMonthToDateTotal(year, month, day),
@@ -29,6 +37,11 @@ export default function Dashboard() {
       })
       .catch(console.error)
       .finally(() => setLoaded(true));
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month, day]);
 
   const total = sumAmounts(expenses);
@@ -80,7 +93,13 @@ export default function Dashboard() {
                 </li>
               ))}
             {expenses.slice(0, 8).map((e) => (
-              <ExpenseRow key={e.id} expense={e} showDate />
+              <ExpenseRow
+                key={e.id}
+                expense={e}
+                showDate
+                onEdit={(expense) => setSheet({ expense, mode: "edit" })}
+                onDelete={(expense) => setSheet({ expense, mode: "delete" })}
+              />
             ))}
             {loaded && expenses.length === 0 && (
               <li className="pt-4 text-sm text-hint">
@@ -117,8 +136,22 @@ export default function Dashboard() {
               매일 적기만 해도 반은 성공이에요
             </p>
           </div>
+
+          <div className="mt-6">
+            <AcornBasket expenses={expenses} loaded={loaded} />
+          </div>
         </div>
       </section>
+
+      {sheet && (
+        <ExpenseEditSheet
+          expense={sheet.expense}
+          initialMode={sheet.mode}
+          onClose={() => setSheet(null)}
+          onSaved={refresh}
+          onDeleted={refresh}
+        />
+      )}
     </main>
   );
 }

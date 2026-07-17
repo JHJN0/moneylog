@@ -7,10 +7,19 @@ interface Props {
   expenses: Expense[];
   loading?: boolean;
   footer?: React.ReactNode;
+  onEdit?: (expense: Expense) => void;
+  onDelete?: (expense: Expense) => void;
 }
 
 // 오른쪽 공용 사이드 패널 (지출 적기 · 지출 내역)
-export default function TodayPanel({ date, expenses, loading, footer }: Props) {
+export default function TodayPanel({
+  date,
+  expenses,
+  loading,
+  footer,
+  onEdit,
+  onDelete,
+}: Props) {
   const total = sumAmounts(expenses);
 
   return (
@@ -34,7 +43,14 @@ export default function TodayPanel({ date, expenses, loading, footer }: Props) {
         ) : expenses.length === 0 ? (
           <li className="pt-2 text-sm text-hint">아직 적은 지출이 없어요</li>
         ) : (
-          expenses.map((e) => <ExpenseRow key={e.id} expense={e} />)
+          expenses.map((e) => (
+            <ExpenseRow
+              key={e.id}
+              expense={e}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))
         )}
       </ul>
 

@@ -3,7 +3,7 @@ import { Expense, NewExpense, toDateStr } from "@/types";
 
 function warnNoClient() {
   console.warn(
-    "[moneylog] Supabase 환경변수가 없어요. .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정해주세요.",
+    "[tori] Supabase 환경변수가 없어요. .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정해주세요.",
   );
 }
 
@@ -85,4 +85,56 @@ export async function addExpense(input: NewExpense): Promise<Expense> {
     .single();
   if (error) throw error;
   return data as Expense;
+}
+
+// 기간 지출 (적은 시각 순) — 하루 이야기 타임라인·주간 통계용
+export async function fetchExpensesByRange(
+  first: string,
+  last: string,
+): Promise<Expense[]> {
+  if (!supabase) {
+    warnNoClient();
+    return [];
+  }
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("*")
+    .gte("date", first)
+    .lte("date", last)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Expense[];
+}
+
+// 지출 수정 — RLS로 본인 데이터만. 정책이 없거나 남의 데이터면 행이 안 돌아온다
+export async function updateExpense(
+  id: string,
+  patch: Partial<NewExpense>,
+): Promise<Expense> {
+  if (!supabase) {
+    warnNoClient();
+    throw new Error("Supabase가 설정되지 않았어요");
+  }
+  const { data, error } = await supabase
+    .from("expenses")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data)
+    throw new Error(
+      "수정하지 못했어요. supabase/tori-migration.sql을 실행했는지 확인해주세요",
+    );
+  return data as Expense;
+}
+
+// 지출 삭제 — RLS로 본인 데이터만
+export async function deleteExpense(id: string): Promise<void> {
+  if (!supabase) {
+    warnNoClient();
+    throw new Error("Supabase가 설정되지 않았어요");
+  }
+  const { error } = await supabase.from("expenses").delete().eq("id", id);
+  if (error) throw error;
 }

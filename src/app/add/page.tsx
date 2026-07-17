@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Wallet, ArrowUp, Check, Loader2 } from "lucide-react";
+import { Squirrel, ArrowUp, Check, Loader2 } from "lucide-react";
 import { Expense, todayStr } from "@/types";
 import { fetchExpensesByDate, addExpense } from "@/lib/expenses";
 import { parseExpense } from "@/lib/parse";
 import TodayPanel from "@/components/TodayPanel";
+import ExpenseEditSheet, {
+  type EditSheetMode,
+} from "@/components/ExpenseEditSheet";
 
 const EXAMPLE_CHIPS = [
   "아침에 버스 1,500원",
@@ -25,6 +28,10 @@ export default function AddExpense() {
   const [success, setSuccess] = useState(false);
   const [todayExpenses, setTodayExpenses] = useState<Expense[]>([]);
   const [todayLoaded, setTodayLoaded] = useState(false);
+  const [sheet, setSheet] = useState<{
+    expense: Expense;
+    mode: EditSheetMode;
+  } | null>(null);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshToday = () => {
@@ -81,8 +88,8 @@ export default function AddExpense() {
       {/* 좌측 메인 — 세로·가로 중앙 정렬 */}
       <main className="flex flex-1 flex-col items-center justify-center px-12">
         <div className="flex w-full max-w-[560px] flex-col items-center">
-          <Wallet size={40} strokeWidth={2} className="text-rausch" />
-          <h1 className="mt-3 text-[40px] font-bold text-ink">머니로그</h1>
+          <Squirrel size={40} strokeWidth={2} className="text-rausch" />
+          <h1 className="mt-3 text-[40px] font-bold text-ink">토리</h1>
           <p className="mt-2 text-base text-sub">
             오늘 뭐 썼어요? 문장으로 적으면 알아서 정리해줘요
           </p>
@@ -144,6 +151,8 @@ export default function AddExpense() {
         date={today}
         expenses={todayExpenses}
         loading={!todayLoaded}
+        onEdit={(expense) => setSheet({ expense, mode: "edit" })}
+        onDelete={(expense) => setSheet({ expense, mode: "delete" })}
         footer={
           <Link
             href="/history"
@@ -153,6 +162,16 @@ export default function AddExpense() {
           </Link>
         }
       />
+
+      {sheet && (
+        <ExpenseEditSheet
+          expense={sheet.expense}
+          initialMode={sheet.mode}
+          onClose={() => setSheet(null)}
+          onSaved={refreshToday}
+          onDeleted={refreshToday}
+        />
+      )}
     </div>
   );
 }
