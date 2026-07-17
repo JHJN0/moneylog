@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Squirrel, ArrowUp, Check, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { ArrowUp, Check, Loader2 } from "lucide-react";
 import { Expense, todayStr } from "@/types";
 import { fetchExpensesByDate, addExpense } from "@/lib/expenses";
 import { parseExpense } from "@/lib/parse";
@@ -88,7 +89,7 @@ export default function AddExpense() {
       {/* 좌측 메인 — 세로·가로 중앙 정렬 */}
       <main className="flex flex-1 flex-col items-center justify-center px-12">
         <div className="flex w-full max-w-[560px] flex-col items-center">
-          <Squirrel size={40} strokeWidth={2} className="text-rausch" />
+          <Image src="/tori.png" alt="토리" width={88} height={88} priority />
           <h1 className="mt-3 text-[40px] font-bold text-ink">토리</h1>
           <p className="mt-2 text-base text-sub">
             오늘 뭐 썼어요? 문장으로 적으면 알아서 정리해줘요

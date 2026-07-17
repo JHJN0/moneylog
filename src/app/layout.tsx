@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "토리",
-  description: "도토리 모으듯 차곡차곡, 문장으로 적는 미니멀 가계부",
+  description: "문장으로 적는 미니멀 가계부, 토리",
 };
 
 export default function RootLayout({

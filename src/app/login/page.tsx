@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Squirrel, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { signIn, signUp, validUsername, USERNAME_RULE } from "@/lib/auth";
 
 type Mode = "login" | "signup";
@@ -50,7 +51,7 @@ export default function Login() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
       <div className="flex w-full max-w-[400px] flex-col items-center">
-        <Squirrel size={40} strokeWidth={2} className="text-rausch" />
+        <Image src="/tori.png" alt="토리" width={96} height={96} priority />
         <h1 className="mt-3 text-[32px] font-bold text-ink">토리</h1>
         <p className="mt-2 text-base text-sub">
           {mode === "login"

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Squirrel, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { displayName, signOut } from "@/lib/auth";
 import { useUser } from "@/lib/useUser";
 
@@ -21,7 +22,7 @@ export default function Header() {
     <header className="border-b border-line bg-white px-4 py-4 sm:px-12 sm:py-5">
       <div className="flex items-center justify-between gap-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <Squirrel size={24} strokeWidth={2} className="text-rausch" />
+          <Image src="/tori.png" alt="토리" width={30} height={30} priority />
           <span className="text-xl font-bold text-ink">토리</span>
         </Link>
         {user && (
