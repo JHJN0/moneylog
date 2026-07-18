@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Circle,
   Loader2,
   PenLine,
 } from "lucide-react";
-import { Expense, dateLabel, formatKRW, todayStr, toDateStr } from "@/types";
-import { fetchExpensesByDate } from "@/lib/expenses";
-import { fetchDiary, saveDiary } from "@/lib/diary";
+import {
+  Expense,
+  dateLabel,
+  formatKRW,
+  todayStr,
+  toDateStr,
+} from "@/types";
+import { fetchExpensesByDate, fetchExpensesByMonth } from "@/lib/expenses";
+import { fetchDiary, fetchDiaryDates, saveDiary } from "@/lib/diary";
+import { DAILY_BUDGET, dayCheck, earnedAcorn } from "@/lib/reward";
 import Acorn from "@/components/Acorn";
 import Skeleton from "@/components/Skeleton";
 
@@ -37,13 +45,30 @@ export default function DailyStory() {
   const [error, setError] = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 보고 있는 달의 지출·일기 날짜 — 도토리 계산용
+  const [monthExpenses, setMonthExpenses] = useState<Expense[]>([]);
+  const [diaryDates, setDiaryDates] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchDiary(date), fetchExpensesByDate(date)])
-      .then(([diary, dayExpenses]) => {
+    const [year, month] = date.split("-").map(Number);
+    const monthLast = toDateStr(
+      year,
+      month,
+      new Date(year, month, 0).getDate(),
+    );
+    Promise.all([
+      fetchDiary(date),
+      fetchExpensesByDate(date),
+      fetchExpensesByMonth(year, month),
+      fetchDiaryDates(toDateStr(year, month, 1), monthLast),
+    ])
+      .then(([diary, dayExpenses, monthRows, dates]) => {
         if (cancelled) return;
         const text = diary?.content ?? "";
         setView({ date, expenses: dayExpenses, error: null });
+        setMonthExpenses(monthRows);
+        setDiaryDates(dates);
         setContent(text);
         setSavedContent(text);
         setSaved(false);
@@ -71,6 +96,22 @@ export default function DailyStory() {
   const expenses = loaded ? view.expenses : [];
   const loadError = loaded ? view.error : null;
 
+  // 이번 달 도토리 — 지출·일기·만원이하 3조건을 채운 날 수
+  const monthAcorns = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const e of monthExpenses) {
+      byDay.set(e.date, (byDay.get(e.date) ?? 0) + e.amount);
+    }
+    let earned = 0;
+    for (const [d, sum] of byDay) {
+      if (diaryDates.has(d) && sum <= DAILY_BUDGET) earned += 1;
+    }
+    return earned;
+  }, [monthExpenses, diaryDates]);
+
+  const checks = dayCheck(expenses, savedContent.trim() !== "");
+  const earnedToday = earnedAcorn(checks);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving || content.trim() === savedContent.trim()) return;
@@ -81,6 +122,13 @@ export default function DailyStory() {
       const result = await saveDiary(date, content);
       setSavedContent(result?.content ?? "");
       setContent(result?.content ?? "");
+      // 일기 유무가 바뀌면 도토리 계산에 바로 반영
+      setDiaryDates((prev) => {
+        const next = new Set(prev);
+        if (result) next.add(date);
+        else next.delete(date);
+        return next;
+      });
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 3000);
@@ -182,38 +230,74 @@ export default function DailyStory() {
         </div>
       </div>
 
-      {/* 이 날의 도토리 — 시간 없이, 일기 아래 조용히 */}
-      <div className="mt-8 border-t border-line pt-6">
+      {/* 도토리 획득 카드 — 3조건을 채우면 하루 1개 */}
+      <div className="mt-6 rounded-(--radius-card) border border-line-strong p-6">
         {!loaded ? (
-          <Skeleton className="h-6 w-48" />
-        ) : expenses.length === 0 ? (
-          <p className="text-sm text-hint">
-            이 날은 도토리를 담지 않았어요. 조용한 하루였네요 🐿️
-          </p>
+          <Skeleton className="h-20 w-full" />
         ) : (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="flex items-center gap-1">
-              {expenses.slice(0, 10).map((e) => (
-                <Acorn
-                  key={e.id}
-                  size={16}
-                  label={`${e.category} ${e.memo || ""} ${formatKRW(e.amount)}`}
-                />
-              ))}
-              {expenses.length > 10 && (
-                <span className="text-xs font-semibold text-sub">
-                  +{expenses.length - 10}
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-[15px] font-bold text-ink">이 날의 도토리</p>
+              {earnedToday ? (
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                  <Acorn size={18} />
+                  획득했어요!
                 </span>
+              ) : (
+                <span className="text-sm text-hint">아직이에요</span>
               )}
-            </span>
-            <span className="text-sm text-sub">
-              이 날 도토리{" "}
-              <span className="font-semibold text-ink">
-                {expenses.length}개
-              </span>{" "}
-              · {formatKRW(total)}
-            </span>
-          </div>
+            </div>
+
+            <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-6">
+              {(
+                [
+                  ["지출 적기", checks.expense],
+                  ["하루 일기", checks.diary],
+                  [
+                    `만원 이하 (${formatKRW(total)})`,
+                    checks.budget,
+                  ],
+                ] as const
+              ).map(([label, met]) => (
+                <li
+                  key={label}
+                  className={`flex items-center gap-1.5 text-sm ${
+                    met ? "font-medium text-ink" : "text-hint"
+                  }`}
+                >
+                  {met ? (
+                    <Check size={15} strokeWidth={2.5} className="text-rausch" />
+                  ) : (
+                    <Circle size={13} strokeWidth={2} className="text-disabled" />
+                  )}
+                  {label}
+                </li>
+              ))}
+            </ul>
+
+            {/* 이번 달 쌓인 도토리 */}
+            <div className="mt-5 border-t border-line pt-4">
+              {monthAcorns === 0 ? (
+                <p className="text-sm text-hint">
+                  이 달엔 아직 모은 도토리가 없어요. 오늘부터 하나씩 모아봐요 🐿️
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="flex flex-wrap items-center gap-0.5">
+                    {Array.from({ length: monthAcorns }, (_, i) => (
+                      <Acorn key={i} size={18} />
+                    ))}
+                  </span>
+                  <span className="text-sm text-sub">
+                    이 달 도토리{" "}
+                    <span className="font-semibold text-ink">
+                      {monthAcorns}개
+                    </span>
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </main>

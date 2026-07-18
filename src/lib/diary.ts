@@ -23,6 +23,21 @@ function translateDiaryError(err: unknown): Error {
   return new Error(message);
 }
 
+// 기간 내 일기가 있는 날짜 집합 — 도토리 획득 계산용
+export async function fetchDiaryDates(
+  first: string,
+  last: string,
+): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data, error } = await supabase
+    .from("diaries")
+    .select("date")
+    .gte("date", first)
+    .lte("date", last);
+  if (error) throw translateDiaryError(error);
+  return new Set((data ?? []).map((row) => row.date as string));
+}
+
 // 그 날의 한줄 일기 (없으면 null)
 export async function fetchDiary(date: string): Promise<Diary | null> {
   if (!supabase) return null;

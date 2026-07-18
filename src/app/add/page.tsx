@@ -3,20 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUp, Check, Loader2 } from "lucide-react";
+import { ArrowUp, Check, Loader2, PenLine } from "lucide-react";
 import { Expense, todayStr } from "@/types";
 import { fetchExpensesByDate, addExpense } from "@/lib/expenses";
+import { fetchDiary } from "@/lib/diary";
 import { parseExpense } from "@/lib/parse";
 import TodayPanel from "@/components/TodayPanel";
 import ExpenseEditSheet, {
   type EditSheetMode,
 } from "@/components/ExpenseEditSheet";
-
-const EXAMPLE_CHIPS = [
-  "아침에 버스 1,500원",
-  "스타벅스 라떼 5,500원",
-  "넷플릭스 구독료 13,500원",
-];
 
 const ERROR_MESSAGE =
   '금액을 못 찾았어요. "김치찌개 9,500원"처럼 금액을 같이 적어주세요.';
@@ -33,6 +28,7 @@ export default function AddExpense() {
     expense: Expense;
     mode: EditSheetMode;
   } | null>(null);
+  const [todayDiary, setTodayDiary] = useState<string | null>(null);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshToday = () => {
@@ -44,6 +40,10 @@ export default function AddExpense() {
 
   useEffect(() => {
     refreshToday();
+    // 오늘의 한 줄 일기 — 예시 문구 대신 보여준다
+    fetchDiary(today)
+      .then((diary) => setTodayDiary(diary?.content ?? null))
+      .catch(() => setTodayDiary(null));
     return () => {
       if (successTimer.current) clearTimeout(successTimer.current);
     };
@@ -131,18 +131,23 @@ export default function AddExpense() {
             )}
           </div>
 
-          {/* 예시 칩 */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            {EXAMPLE_CHIPS.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => setText(chip)}
-                className="rounded-full border border-line-strong px-4 py-2 text-sm text-body whitespace-nowrap hover:border-ink"
+          {/* 오늘의 한 줄 일기 */}
+          <div className="mt-4 flex justify-center">
+            {todayDiary ? (
+              <p className="flex items-center gap-2 rounded-full bg-soft px-5 py-2.5 text-sm text-body">
+                <PenLine size={14} strokeWidth={2} className="shrink-0 text-hint" />
+                <span className="font-medium text-ink">오늘의 한 줄</span>
+                <span className="min-w-0 truncate">{todayDiary}</span>
+              </p>
+            ) : (
+              <Link
+                href="/timeline"
+                className="flex items-center gap-2 rounded-full border border-line-strong px-5 py-2.5 text-sm text-sub hover:border-ink hover:text-ink"
               >
-                {chip}
-              </button>
-            ))}
+                <PenLine size={14} strokeWidth={2} />
+                아직 오늘 한 줄이 없어요 · 남기러 가기
+              </Link>
+            )}
           </div>
         </div>
       </main>

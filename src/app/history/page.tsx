@@ -11,6 +11,8 @@ import {
   todayStr,
 } from "@/types";
 import { fetchExpensesByMonth } from "@/lib/expenses";
+import { fetchDiaryDates } from "@/lib/diary";
+import { DAILY_BUDGET } from "@/lib/reward";
 import TodayPanel from "@/components/TodayPanel";
 import Acorn from "@/components/Acorn";
 import ExpenseEditSheet, {
@@ -38,9 +40,21 @@ export default function History() {
   const isCurrentMonth =
     cursor.year === now.getFullYear() && cursor.month === now.getMonth() + 1;
 
+  const [diaryDates, setDiaryDates] = useState<Set<string>>(new Set());
+
   const refresh = () => {
-    fetchExpensesByMonth(cursor.year, cursor.month)
-      .then(setExpenses)
+    const lastDay = new Date(cursor.year, cursor.month, 0).getDate();
+    Promise.all([
+      fetchExpensesByMonth(cursor.year, cursor.month),
+      fetchDiaryDates(
+        toDateStr(cursor.year, cursor.month, 1),
+        toDateStr(cursor.year, cursor.month, lastDay),
+      ),
+    ])
+      .then(([monthExpenses, dates]) => {
+        setExpenses(monthExpenses);
+        setDiaryDates(dates);
+      })
       .catch(console.error)
       .finally(() => setLoaded(true));
   };
@@ -62,6 +76,15 @@ export default function History() {
 
   const total = sumAmounts(expenses);
   const count = expenses.length;
+
+  // 이번 달 도토리 — 3조건(지출·일기·만원이하)을 채운 날 수
+  const monthAcorns = useMemo(() => {
+    let earned = 0;
+    for (const [dateStr, day] of byDay) {
+      if (diaryDates.has(dateStr) && day.sum <= DAILY_BUDGET) earned += 1;
+    }
+    return earned;
+  }, [byDay, diaryDates]);
 
   // 달력 셀 구성: 앞뒤 빈칸 + 날짜
   const firstWeekday = new Date(cursor.year, cursor.month - 1, 1).getDay();
@@ -87,10 +110,16 @@ export default function History() {
               <h1 className="text-[21px] font-bold text-ink">
                 {monthLabel(cursor.year, cursor.month)}
               </h1>
-              <p className="mt-1 text-sm text-sub">
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-sub">
                 이번 달{" "}
                 <span className="font-semibold text-ink">
                   {formatKRW(total)} · {count}건
+                </span>
+                <span className="ml-1 flex items-center gap-1">
+                  <Acorn size={14} />
+                  <span className="font-semibold text-ink">
+                    도토리 {monthAcorns}개
+                  </span>
                 </span>
               </p>
             </div>
@@ -168,27 +197,14 @@ export default function History() {
                   )}
                   {day && (
                     <span className="flex flex-col gap-1">
-                      {/* 그날 담은 도토리 — 5개까지, 넘치면 +N */}
-                      <span
-                        className="flex flex-wrap items-center gap-px"
-                        aria-label={`도토리 ${day.count}개`}
-                      >
-                        {Array.from(
-                          { length: Math.min(day.count, 5) },
-                          (_, k) => (
-                            <Acorn key={k} size={13} />
-                          ),
-                        )}
-                        {day.count > 5 && (
-                          <span className="ml-0.5 text-[10px] font-semibold text-sub">
-                            +{day.count - 5}
-                          </span>
-                        )}
-                      </span>
+                      {/* 지출·일기·만원이하 3조건을 채운 날 = 도토리 1개 획득 */}
+                      {diaryDates.has(dateStr) && day.sum <= DAILY_BUDGET && (
+                        <Acorn size={14} label="도토리 획득!" />
+                      )}
                       {/* 하루 1만원 이상 쓴 날은 빨간색으로 경고 */}
                       <span
                         className={`text-xs font-semibold whitespace-nowrap ${
-                          day.sum >= 10000 ? "text-rausch" : "text-ink"
+                          day.sum >= DAILY_BUDGET ? "text-rausch" : "text-ink"
                         }`}
                       >
                         {formatKRW(day.sum)}
@@ -201,8 +217,8 @@ export default function History() {
           </div>
 
           <p className="mt-4 text-[13px] text-hint">
-            지출이 있는 날엔 담은 도토리와 하루 합계가 보여요 · 오늘은
-            테두리로 표시돼요
+            지출 적기 · 하루 일기 · 만원 이하, 셋을 다 채운 날엔 도토리가
+            열려요 🌰 모든 날을 채우면 특별한 보상이 기다려요 (준비 중)
           </p>
         </div>
       </main>
