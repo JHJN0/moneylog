@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  Sunrise,
-  Sun,
-  Sunset,
-  Moon,
-  MapPin,
-  MoonStar,
-  Sprout,
-  type LucideIcon,
+  Check,
+  Loader2,
+  PenLine,
 } from "lucide-react";
 import { Expense, dateLabel, formatKRW, todayStr, toDateStr } from "@/types";
-import { fetchExpensesByRange } from "@/lib/expenses";
-import { CATEGORY_ICONS } from "@/components/ExpenseRow";
+import { fetchExpensesByDate } from "@/lib/expenses";
+import { fetchDiary, saveDiary } from "@/lib/diary";
+import Acorn from "@/components/Acorn";
 import Skeleton from "@/components/Skeleton";
 
 // 'YYYY-MM-DD'를 delta일만큼 이동
@@ -25,82 +21,86 @@ function shiftDate(date: string, delta: number): string {
   return toDateStr(next.getFullYear(), next.getMonth() + 1, next.getDate());
 }
 
-// created_at → 'HH:MM' (로컬 시각)
-function timeLabel(createdAt: string): string {
-  const d = new Date(createdAt);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(
-    d.getMinutes(),
-  ).padStart(2, "0")}`;
-}
-
-// 시간대 아이콘 · 이름 (적은 시각 기준)
-function timeOfDay(createdAt: string): { Icon: LucideIcon; name: string } {
-  const hour = new Date(createdAt).getHours();
-  if (hour >= 5 && hour < 11) return { Icon: Sunrise, name: "아침" };
-  if (hour >= 11 && hour < 17) return { Icon: Sun, name: "낮" };
-  if (hour >= 17 && hour < 21) return { Icon: Sunset, name: "저녁" };
-  return { Icon: Moon, name: "밤" };
-}
-
-// 새벽(0~4시)은 하루의 끝으로 쳐서 "가장 늦게"를 찾는다
-function lateScore(createdAt: string): number {
-  const d = new Date(createdAt);
-  const hour = d.getHours() < 5 ? d.getHours() + 24 : d.getHours();
-  return hour * 60 + d.getMinutes();
-}
-
-export default function Timeline() {
+export default function DailyStory() {
   const today = todayStr();
   const [date, setDate] = useState(today);
-  const [dayExpenses, setDayExpenses] = useState<Expense[]>([]);
-  const [weekExpenses, setWeekExpenses] = useState<Expense[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  const weekFirst = shiftDate(today, -6);
+  const [content, setContent] = useState("");
+  const [savedContent, setSavedContent] = useState("");
+  // 날짜별 조회 결과 — view.date가 현재 date와 같아야 로딩 완료로 본다
+  const [view, setView] = useState<{
+    date: string;
+    expenses: Expense[];
+    error: string | null;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // 선택한 날 + 최근 7일을 한 번에 가져와 나눠 쓴다
-    const first = date < weekFirst ? date : weekFirst;
-    const last = date > today ? date : today;
-    fetchExpensesByRange(first, last)
-      .then((rows) => {
-        setDayExpenses(rows.filter((e) => e.date === date));
-        setWeekExpenses(
-          rows.filter((e) => e.date >= weekFirst && e.date <= today),
-        );
+    let cancelled = false;
+    Promise.all([fetchDiary(date), fetchExpensesByDate(date)])
+      .then(([diary, dayExpenses]) => {
+        if (cancelled) return;
+        const text = diary?.content ?? "";
+        setView({ date, expenses: dayExpenses, error: null });
+        setContent(text);
+        setSavedContent(text);
+        setSaved(false);
+        setError(null);
       })
-      .catch(console.error)
-      .finally(() => setLoaded(true));
-  }, [date, weekFirst, today]);
+      .catch((err) => {
+        if (cancelled) return;
+        setView({
+          date,
+          expenses: [],
+          error: err instanceof Error ? err.message : "불러오지 못했어요",
+        });
+        setContent("");
+        setSavedContent("");
+        setSaved(false);
+        setError(null);
+      });
+    return () => {
+      cancelled = true;
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, [date]);
 
-  // 이번 주 재미 통계
-  const weekStats = useMemo(() => {
-    if (weekExpenses.length === 0) return null;
+  const loaded = view?.date === date;
+  const expenses = loaded ? view.expenses : [];
+  const loadError = loaded ? view.error : null;
 
-    const counts = new Map<string, number>();
-    for (const e of weekExpenses) {
-      const key = e.memo.trim() || e.category;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving || content.trim() === savedContent.trim()) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const result = await saveDiary(date, content);
+      setSavedContent(result?.content ?? "");
+      setContent(result?.content ?? "");
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "잠시 후 다시 시도해주세요");
+    } finally {
+      setSaving(false);
     }
-    const [favoriteName, favoriteCount] = [...counts.entries()].sort(
-      (a, b) => b[1] - a[1],
-    )[0];
+  };
 
-    const latest = weekExpenses.reduce((acc, e) =>
-      lateScore(e.created_at) > lateScore(acc.created_at) ? e : acc,
-    );
-
-    return { favoriteName, favoriteCount, latest };
-  }, [weekExpenses]);
+  const total = expenses.reduce((acc, e) => acc + e.amount, 0);
 
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 px-6 py-10 sm:px-12">
-      {/* 상단: 날짜 이동 */}
-      <div className="flex items-center justify-between">
+    <main className="mx-auto w-full max-w-[640px] flex-1 px-6 py-10 sm:px-10">
+      {/* 상단: 타이틀 + 날짜 이동 */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[28px] font-bold text-ink">하루 이야기</h1>
           <p className="mt-1 text-sm text-sub">
-            도토리를 담은 시간을 따라 하루를 돌아봐요
+            오늘 하루를 한 줄로 남겨요. 토리가 도토리와 함께 기억해줄게요
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export default function Timeline() {
           >
             <ChevronLeft size={18} strokeWidth={2} />
           </button>
-          <span className="w-[110px] text-center text-sm font-semibold text-ink">
+          <span className="w-[110px] text-center text-sm font-semibold whitespace-nowrap text-ink">
             {dateLabel(date)}
           </span>
           <button
@@ -127,142 +127,95 @@ export default function Timeline() {
         </div>
       </div>
 
-      {/* 이번 주 재미 통계 카드 */}
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard
-          Icon={Sprout}
-          label="이번 주 도토리"
-          value={
-            loaded ? (
-              `${weekExpenses.length}개`
-            ) : (
-              <Skeleton className="h-6 w-14" />
-            )
-          }
-          hint={loaded ? formatKRW(weekExpenses.reduce((a, e) => a + e.amount, 0)) : ""}
-        />
-        <StatCard
-          Icon={MapPin}
-          label="제일 자주 담은 곳"
-          value={
-            loaded ? (
-              (weekStats?.favoriteName ?? "아직 없어요")
-            ) : (
-              <Skeleton className="h-6 w-20" />
-            )
-          }
-          hint={
-            weekStats && weekStats.favoriteCount > 1
-              ? `${weekStats.favoriteCount}번이나 갔어요`
-              : ""
-          }
-        />
-        <StatCard
-          Icon={MoonStar}
-          label="가장 늦게 담은 도토리"
-          value={
-            loaded ? (
-              weekStats ? (
-                timeLabel(weekStats.latest.created_at)
-              ) : (
-                "아직 없어요"
-              )
-            ) : (
-              <Skeleton className="h-6 w-16" />
-            )
-          }
-          hint={weekStats ? weekStats.latest.memo || weekStats.latest.category : ""}
-        />
-      </div>
-
-      {/* 타임라인 */}
+      {/* 한줄 일기 */}
       <div className="mt-10">
         {!loaded ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
-        ) : dayExpenses.length === 0 ? (
-          <div className="rounded-(--radius-card) border border-line py-14 text-center">
-            <p className="text-base font-medium text-ink">
-              이 날은 도토리를 안 담았어요
-            </p>
-            <p className="mt-1 text-sm text-sub">조용한 하루였네요 🐿️</p>
-          </div>
+          <Skeleton className="h-14 w-full" />
         ) : (
-          <ol className="relative ml-[52px] border-l-2 border-line">
-            {dayExpenses.map((e) => {
-              const { Icon: TimeIcon, name } = timeOfDay(e.created_at);
-              const CategoryIcon = CATEGORY_ICONS[e.category];
-              return (
-                <li key={e.id} className="relative pb-8 pl-8 last:pb-2">
-                  {/* 시각 — 선 왼쪽 */}
-                  <span className="absolute top-1.5 -left-[52px] w-10 text-right text-[13px] font-medium text-sub">
-                    {timeLabel(e.created_at)}
-                  </span>
-                  {/* 시간대 아이콘 — 선 위의 점 */}
-                  <span className="absolute top-0 -left-[15px] flex size-7 items-center justify-center rounded-full border border-line-strong bg-white">
-                    <TimeIcon size={14} strokeWidth={2} className="text-sub" />
-                  </span>
-
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-soft">
-                      <CategoryIcon
-                        size={18}
-                        strokeWidth={2}
-                        className="text-ink"
-                      />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium text-ink">
-                        {e.memo || e.category}
-                      </p>
-                      <p className="text-[13px] text-sub">
-                        {name} · {e.category}
-                      </p>
-                    </div>
-                    <span className="text-[15px] font-semibold whitespace-nowrap text-ink">
-                      {formatKRW(e.amount)}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          <form onSubmit={handleSave}>
+            <div className="relative">
+              <PenLine
+                size={18}
+                strokeWidth={2}
+                className="absolute top-1/2 left-6 -translate-y-1/2 text-hint"
+              />
+              <input
+                type="text"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                maxLength={100}
+                placeholder={
+                  date === today
+                    ? "오늘은 어떤 하루였나요? 한 줄로 남겨봐요"
+                    : "이 날은 어떤 하루였나요?"
+                }
+                className="h-14 w-full rounded-full border border-line-strong pr-28 pl-14 text-base text-ink shadow-(--shadow-prompt) outline-none placeholder:text-hint focus:border-2 focus:border-ink"
+              />
+              <button
+                type="submit"
+                disabled={saving || content.trim() === savedContent.trim()}
+                className="absolute top-1/2 right-2 flex h-10 w-24 -translate-y-1/2 items-center justify-center rounded-full bg-rausch text-sm font-semibold text-white hover:bg-rausch-press active:bg-rausch-press disabled:bg-disabled"
+              >
+                {saving ? (
+                  <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
+                ) : savedContent ? (
+                  "고쳐 쓰기"
+                ) : (
+                  "남기기"
+                )}
+              </button>
+            </div>
+          </form>
         )}
 
-        {loaded && dayExpenses.length > 0 && (
-          <p className="mt-6 text-[13px] text-hint">
-            도토리 {dayExpenses.length}개 ·{" "}
-            {formatKRW(dayExpenses.reduce((a, e) => a + e.amount, 0))} · 적은
-            시간 기준이에요
+        {/* 상태 메시지 */}
+        <div className="mt-3 h-6 px-2">
+          {(loadError || error) && (
+            <p className="text-sm text-error">{loadError || error}</p>
+          )}
+          {saved && (
+            <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+              <Check size={16} strokeWidth={2.5} />
+              남겼어요! 토리가 잘 보관할게요
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* 이 날의 도토리 — 시간 없이, 일기 아래 조용히 */}
+      <div className="mt-8 border-t border-line pt-6">
+        {!loaded ? (
+          <Skeleton className="h-6 w-48" />
+        ) : expenses.length === 0 ? (
+          <p className="text-sm text-hint">
+            이 날은 도토리를 담지 않았어요. 조용한 하루였네요 🐿️
           </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="flex items-center gap-1">
+              {expenses.slice(0, 10).map((e) => (
+                <Acorn
+                  key={e.id}
+                  size={16}
+                  label={`${e.category} ${e.memo || ""} ${formatKRW(e.amount)}`}
+                />
+              ))}
+              {expenses.length > 10 && (
+                <span className="text-xs font-semibold text-sub">
+                  +{expenses.length - 10}
+                </span>
+              )}
+            </span>
+            <span className="text-sm text-sub">
+              이 날 도토리{" "}
+              <span className="font-semibold text-ink">
+                {expenses.length}개
+              </span>{" "}
+              · {formatKRW(total)}
+            </span>
+          </div>
         )}
       </div>
     </main>
-  );
-}
-
-function StatCard({
-  Icon,
-  label,
-  value,
-  hint,
-}: {
-  Icon: LucideIcon;
-  label: string;
-  value: React.ReactNode;
-  hint: string;
-}) {
-  return (
-    <div className="rounded-(--radius-card) border border-line-strong p-5">
-      <div className="flex items-center gap-1.5 text-sub">
-        <Icon size={14} strokeWidth={2} />
-        <span className="text-[13px] font-medium">{label}</span>
-      </div>
-      <div className="mt-2 truncate text-lg font-bold text-ink">{value}</div>
-      <p className="mt-0.5 h-4 truncate text-[13px] text-hint">{hint}</p>
-    </div>
   );
 }

@@ -185,9 +185,10 @@ export default function History() {
                           </span>
                         )}
                       </span>
+                      {/* 하루 1만원 이상 쓴 날은 빨간색으로 경고 */}
                       <span
                         className={`text-xs font-semibold whitespace-nowrap ${
-                          isToday ? "text-rausch" : "text-ink"
+                          day.sum >= 10000 ? "text-rausch" : "text-ink"
                         }`}
                       >
                         {formatKRW(day.sum)}

@@ -10,7 +10,6 @@ import ExpenseEditSheet, {
 } from "@/components/ExpenseEditSheet";
 import PrimaryButton from "@/components/PrimaryButton";
 import Skeleton from "@/components/Skeleton";
-import AcornBasket from "@/components/AcornBasket";
 
 export default function Dashboard() {
   const now = new Date();
@@ -46,7 +45,6 @@ export default function Dashboard() {
 
   const total = sumAmounts(expenses);
   const count = expenses.length;
-  const dailyAvg = day > 0 ? Math.round(total / day) : 0;
   const diff = prevTotal === null ? null : prevTotal - total;
 
   return (
@@ -125,21 +123,12 @@ export default function Dashboard() {
                   {loaded ? `${count}건` : <Skeleton className="h-5 w-12" />}
                 </dd>
               </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-sm text-sub">하루 평균</dt>
-                <dd className="whitespace-nowrap text-base font-semibold text-ink">
-                  {loaded ? formatKRW(dailyAvg) : <Skeleton className="h-5 w-16" />}
-                </dd>
-              </div>
             </dl>
             <p className="mt-6 text-[13px] text-hint">
               매일 적기만 해도 반은 성공이에요
             </p>
           </div>
 
-          <div className="mt-6">
-            <AcornBasket expenses={expenses} loaded={loaded} />
-          </div>
         </div>
       </section>
 
